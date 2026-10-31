@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BookHub.Application\BookHub.Application.csproj" />
+    <ProjectReference Include="..\BookHub.Infrastructure\BookHub.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
