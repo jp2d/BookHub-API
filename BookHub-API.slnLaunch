@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "BookHub API",
+    "Projects": [
+      {
+        "Path": "BookHub.API\\BookHub.API.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
