@@ -1,4 +1,3 @@
-using BookHub.Application;
 using BookHub.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -9,8 +8,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 #region 🔹 Configuração do banco de dados (PostgreSQL via Infrastructure)
-builder.Services.AddDbContext<BookHubContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddInfrastructureServices(builder.Configuration);
 #endregion
 
 #region 🔹 Configuração do CORS (para permitir acesso do frontend React)
@@ -52,7 +50,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 #endregion
 
-// 🔹 Configuração do JWT
+#region 🔹 Configuração do JWT
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Configuração 'Jwt:Key' não encontrada.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]
@@ -76,10 +74,10 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
     };
 });
+#endregion
 
 // 🔹 Injeção de dependências (Application + Infrastructure)
 //builder.Services.AddApplicationServices();
-//builder.Services.AddInfrastructureServices(builder.Configuration);
 
 builder.Services.AddControllers();
 

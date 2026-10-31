@@ -1,3 +1,4 @@
+using BookHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookHub.Infrastructure
@@ -7,6 +8,10 @@ namespace BookHub.Infrastructure
         public BookHubContext(DbContextOptions<BookHubContext> options) : base(options)
         {
         }
+
+        public DbSet<Genre> Genres => Set<Genre>();
+        public DbSet<Author> Authors => Set<Author>();
+        public DbSet<Book> Books => Set<Book>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
