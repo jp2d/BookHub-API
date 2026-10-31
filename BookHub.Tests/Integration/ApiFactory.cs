@@ -13,7 +13,10 @@ namespace BookHub.Tests.Integration
         {
             await _postgres.StartAsync();
             Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", _postgres.GetConnectionString());
+            Environment.SetEnvironmentVariable("Seed__Enabled", "false");
         }
+
+        public string ConnectionString => _postgres.GetConnectionString();
 
         async Task IAsyncLifetime.DisposeAsync()
         {
