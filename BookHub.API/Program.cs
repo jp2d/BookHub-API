@@ -5,6 +5,7 @@ using BookHub.Application.Books;
 using BookHub.Application.Genres;
 using BookHub.Infrastructure;
 using BookHub.Infrastructure.Persistence.Repositories;
+using BookHub.Infrastructure.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -91,6 +92,9 @@ builder.Services.AddScoped<IGenreRepository, GenreRepository>();
 builder.Services.AddScoped<IAuthorRepository, AuthorRepository>();
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 
+// Seed de dados iniciais (Infrastructure)
+builder.Services.AddScoped<DatabaseSeeder>();
+
 // Serviços (Application)
 builder.Services.AddScoped<IGenreService, GenreService>();
 builder.Services.AddScoped<IAuthorService, AuthorService>();
@@ -110,6 +114,9 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<BookHubContext>().Database.MigrateAsync();
+
+    if (app.Configuration.GetValue("Seed:Enabled", true))
+        await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().SeedAsync();
 }
 
 // 🔹 Middleware
