@@ -1,6 +1,37 @@
 @BookHub.API_HostAddress = http://localhost:5254
 
-GET {{BookHub.API_HostAddress}}/weatherforecast/
+### Gêneros
+GET {{BookHub.API_HostAddress}}/api/genres?search=fic&page=1&pageSize=10
 Accept: application/json
 
 ###
+POST {{BookHub.API_HostAddress}}/api/genres
+Content-Type: application/json
+
+{ "name": "Ficção" }
+
+### Autores
+GET {{BookHub.API_HostAddress}}/api/authors
+Accept: application/json
+
+###
+POST {{BookHub.API_HostAddress}}/api/authors
+Content-Type: application/json
+
+{ "name": "Machado de Assis" }
+
+### Livros (substitua os GUIDs pelos ids retornados acima)
+GET {{BookHub.API_HostAddress}}/api/books?sortBy=year&descending=true
+Accept: application/json
+
+###
+POST {{BookHub.API_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "title": "Dom Casmurro",
+  "publicationYear": 1899,
+  "isbn": "978-85-359-0277-5",
+  "authorId": "00000000-0000-0000-0000-000000000000",
+  "genreId": "00000000-0000-0000-0000-000000000000"
+}

@@ -1,3 +1,4 @@
+using BookHub.API.ErrorHandling;
 using BookHub.Application.Abstractions;
 using BookHub.Application.Authors;
 using BookHub.Application.Books;
@@ -96,11 +97,24 @@ builder.Services.AddScoped<IAuthorService, AuthorService>();
 builder.Services.AddScoped<IBookService, BookService>();
 #endregion
 
+#region 🔹 Tratamento global de erros (ProblemDetails)
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+#endregion
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<BookHubContext>().Database.MigrateAsync();
+}
+
 // 🔹 Middleware
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
