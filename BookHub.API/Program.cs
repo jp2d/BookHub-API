@@ -1,4 +1,9 @@
+using BookHub.Application.Abstractions;
+using BookHub.Application.Authors;
+using BookHub.Application.Books;
+using BookHub.Application.Genres;
 using BookHub.Infrastructure;
+using BookHub.Infrastructure.Persistence.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -6,10 +11,6 @@ using Microsoft.OpenApi;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-
-#region 🔹 Configuração do banco de dados (PostgreSQL via Infrastructure)
-builder.Services.AddInfrastructureServices(builder.Configuration);
-#endregion
 
 #region 🔹 Configuração do CORS (para permitir acesso do frontend React)
 builder.Services.AddCors(options =>
@@ -76,8 +77,24 @@ builder.Services.AddAuthentication(options =>
 });
 #endregion
 
-// 🔹 Injeção de dependências (Application + Infrastructure)
-//builder.Services.AddApplicationServices();
+#region 🔹 Injeção de dependências
+// Banco de dados (PostgreSQL)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' não encontrada.");
+
+builder.Services.AddDbContext<BookHubContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<BookHubContext>());
+
+// Repositórios (Infrastructure)
+builder.Services.AddScoped<IGenreRepository, GenreRepository>();
+builder.Services.AddScoped<IAuthorRepository, AuthorRepository>();
+builder.Services.AddScoped<IBookRepository, BookRepository>();
+
+// Serviços (Application)
+builder.Services.AddScoped<IGenreService, GenreService>();
+builder.Services.AddScoped<IAuthorService, AuthorService>();
+builder.Services.AddScoped<IBookService, BookService>();
+#endregion
 
 builder.Services.AddControllers();
 
