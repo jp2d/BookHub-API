@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { IconButton, Tooltip } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import { RowActionButton } from '@/components/RowActionButton'
 
 interface RowActionsProps {
   itemLabel: string
@@ -14,16 +14,14 @@ export function RowActions({ itemLabel, onEdit, onDelete, children }: RowActions
   return (
     <>
       {children}
-      <Tooltip title="Editar">
-        <IconButton aria-label={`Editar ${itemLabel}`} onClick={onEdit}>
-          <EditIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Excluir">
-        <IconButton aria-label={`Excluir ${itemLabel}`} color="error" onClick={onDelete}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
+      <RowActionButton label="Editar" ariaLabel={`Editar ${itemLabel}`} icon={<EditIcon fontSize="small" />} onClick={onEdit} />
+      <RowActionButton
+        label="Excluir"
+        ariaLabel={`Excluir ${itemLabel}`}
+        icon={<DeleteIcon fontSize="small" />}
+        color="error"
+        onClick={onDelete}
+      />
     </>
   )
 }
