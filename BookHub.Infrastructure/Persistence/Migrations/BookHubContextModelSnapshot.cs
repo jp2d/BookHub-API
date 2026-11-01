@@ -88,9 +88,6 @@ namespace BookHub.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
-
                     b.ToTable("genres", (string)null);
                 });
 

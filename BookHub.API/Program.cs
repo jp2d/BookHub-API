@@ -9,6 +9,7 @@ using BookHub.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Serilog;
+using Serilog.Events;
 using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -87,6 +88,8 @@ builder.Services.AddScoped<IAuthorService, AuthorService>();
 builder.Services.AddScoped<IBookService, BookService>();
 #endregion
 
+builder.Services.AddHealthChecks().AddDbContextCheck<BookHubContext>("database");
+
 #region 🔹 Tratamento global de erros (ProblemDetails)
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -108,7 +111,11 @@ if (app.Environment.IsDevelopment())
 // 🔹 Middleware
 // Request logging must wrap the exception handler: it then records the final status (409, 404...)
 // instead of seeing every handled business error as an unhandled 500.
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+    options.GetLevel = (httpContext, _, exception) =>
+        httpContext.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Verbose // probes would flood the log
+        : exception is not null || httpContext.Response.StatusCode >= 500 ? LogEventLevel.Error
+        : LogEventLevel.Information);
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -122,6 +129,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("Frontend");
 
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();
