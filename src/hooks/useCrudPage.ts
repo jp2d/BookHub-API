@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { getErrorMessage, type CrudHooks } from '@/api'
 import { useNotify } from '@/components/Notification'
-import { useListState } from './useListState'
 
 export type FormTarget<T> = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; item: T }
 
@@ -11,19 +10,29 @@ interface CrudMessages {
   deleted: string
 }
 
-interface UseCrudPageOptions<TEntity, TRequest> {
-  hooks: CrudHooks<TEntity, TRequest>
+// What the CRUD page needs from the screen's list state (search/filters/pagination live in the screen).
+export interface CrudListState<TParams> {
+  params: TParams
+  page: number // 0-based
+  setPage: (page: number) => void
+}
+
+interface UseCrudPageOptions<TEntity, TRequest, TParams extends object, TList extends CrudListState<TParams>> {
+  hooks: CrudHooks<TEntity, TRequest, TParams>
+  list: TList
   messages: CrudMessages
 }
 
-// Everything a CRUD list screen needs besides its markup: list state, queries, form/confirm dialogs
-// and mutations with user feedback. Genres, authors and books configure it instead of repeating it.
-export function useCrudPage<TEntity extends { id: string }, TRequest>({
-  hooks,
-  messages,
-}: UseCrudPageOptions<TEntity, TRequest>) {
+// Everything a CRUD list screen needs besides its markup: queries, form/confirm dialogs and
+// mutations with user feedback. Genres, authors and books configure it instead of repeating it.
+// All type arguments are inferred from `hooks` and `list`, so `list` keeps the screen's own type.
+export function useCrudPage<
+  TEntity extends { id: string },
+  TRequest,
+  TParams extends object,
+  TList extends CrudListState<TParams>,
+>({ hooks, list, messages }: UseCrudPageOptions<TEntity, TRequest, TParams, TList>) {
   const notify = useNotify()
-  const list = useListState()
   const query = hooks.useList(list.params)
   const createMutation = hooks.useCreate()
   const updateMutation = hooks.useUpdate()

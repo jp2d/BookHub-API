@@ -1,10 +1,20 @@
 import { authorsApi, booksApi, genresApi } from '@/api'
 import type { ActiveFilter } from '@/components'
+import { useCrudPage } from '@/hooks'
 import { useBooksListState } from './useBooksListState'
 
 export function useBooksPage() {
-  const list = useBooksListState()
-  const query = booksApi.useList(list.params)
+  const crud = useCrudPage({
+    hooks: booksApi,
+    list: useBooksListState(),
+    messages: {
+      created: 'Livro criado com sucesso.',
+      updated: 'Livro atualizado com sucesso.',
+      deleted: 'Livro excluído com sucesso.',
+    },
+  })
+
+  const { list } = crud
   const author = authorsApi.useOne(list.authorId)
   const genre = genresApi.useOne(list.genreId)
 
@@ -24,11 +34,5 @@ export function useBooksPage() {
     })
   }
 
-  return {
-    list,
-    query,
-    rows: query.data?.items ?? [],
-    totalCount: query.data?.totalCount ?? 0,
-    activeFilters,
-  }
+  return { ...crud, activeFilters }
 }

@@ -1,3 +1,4 @@
+export { AsyncAutocomplete } from './AsyncAutocomplete'
 export { ConfirmDialog } from './ConfirmDialog'
 export { DataTable, type DataTableColumn, type DataTablePagination, type DataTableSorting } from './DataTable'
 export { FilterChips, type ActiveFilter } from './FilterChips'
