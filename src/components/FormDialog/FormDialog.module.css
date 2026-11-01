@@ -1,0 +1,6 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mui-spacing) * 2);
+  padding-top: calc(var(--mui-spacing) * 1) !important;
+}
