@@ -59,7 +59,9 @@ describe('validateBook', () => {
   })
 
   it('limits the title length', () => {
-    expect(validateBook({ ...validValues, title: 'a'.repeat(LIMITS.bookTitle + 1) }).title).toContain(`${LIMITS.bookTitle} caracteres`)
+    expect(validateBook({ ...validValues, title: 'a'.repeat(LIMITS.bookTitle + 1) }).title).toContain(
+      `${LIMITS.bookTitle} caracteres`,
+    )
   })
 
   it('reports an invalid ISBN only when one is informed', () => {

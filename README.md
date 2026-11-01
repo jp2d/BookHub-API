@@ -14,7 +14,7 @@ React single-page application to **search, register and maintain genres, authors
 | Server state | TanStack Query (caching, loading/error states, invalidation) |
 | Routing | React Router (filters, search and sorting live in the URL) |
 | Tests | Vitest, Testing Library, user-event, jsdom |
-| Lint | oxlint |
+| Lint / format | oxlint, Prettier (`.prettierrc.json`, `.editorconfig`) |
 | Delivery | Multi-stage `Dockerfile` (Node build → nginx) and `docker-compose.yml` |
 
 **What the user can do**
@@ -66,6 +66,7 @@ Option A and option B both use port 5173: stop the container (`docker compose do
 | `npm run dev` | Dev server with hot reload |
 | `npm run build` | Type-check (`tsc -b`) and production build |
 | `npm run lint` | oxlint |
+| `npm run format` / `npm run format:check` | Format the code with Prettier / check that it is formatted |
 | `npm test` | Runs all tests once (no API or Docker needed: `fetch` is mocked) |
 | `npm run test:watch` | Tests in watch mode |
 
@@ -154,18 +155,19 @@ Genres and authors differ only in their columns, texts and validator. Books add 
 
 ## 7. Testing strategy
 
-52 automated tests (`npm test`), none of which need the API or Docker because `fetch` is replaced by a mock that also records every request:
+76 automated tests in 7 files (`npm test`), none of which need the API or Docker because `fetch` is replaced by a mock that also records every request:
 
 - **API client (`api/*.test.ts`)** — query-string building, JSON bodies, `204 No Content`, conversion of `problem+json` and ASP.NET validation errors into `ApiError`, fallback for non-JSON errors, and the "API unreachable" case.
 - **Validation (`validation/*.test.ts`)** — required/length rules, ISBN normalisation (10 and 13 digits, check digit `X`), year boundaries, and that the book form reports every error at once.
 - **Books screen (`pages/Books/BooksPage.test.tsx`)** — rendered with the same providers as the app: listing with author/genre, empty and error states with retry, chip and URL filters, form validation without calling the API, the exact POST payload (normalised ISBN), a server `400` keeping the dialog open, and delete with confirmation, cancellation and a `409` refusal.
+- **Genres and authors screens (`pages/Genres|Authors/*.test.tsx`)** — both screens do the same thing with different texts, so one parametrised suite (`src/test/nameCrudScreenSuite.tsx`) describes the behaviour and each screen supplies its configuration: listing, empty state, debounced server-side search, next page, "View books" navigation, create (validation, trimmed payload, server rejection keeping the dialog open), edit (pre-filled, `PUT` payload) and delete (confirm, cancel, refusal by the API).
 
 The tests assert behaviour the user sees, not implementation details. As a sanity check, deliberately removing the ISBN normalisation was caught by the payload test.
 
 ## 8. Known limitations
 
 - **Two repositories.** The challenge asks for back-end and front-end in one repository; this front-end lives in its own repository and is linked from the API's README. They can be consolidated (monorepo or submodule) without code changes.
-- **Genres and authors screens have no tests of their own.** They use the same generic blocks that are exercised through the books screen. There are no end-to-end tests (for example Playwright).
+- **No end-to-end tests** (for example Playwright): the screens are tested with a mocked `fetch`, never against the real API.
 - **No authentication or authorization** (the API has none either).
 - **UI texts are in Portuguese only**; there is no i18n layer.
 - **Bundle size.** The production build is one chunk above 500 kB (mostly MUI); routes are not code-split.
@@ -176,7 +178,7 @@ The tests assert behaviour the user sees, not implementation details. As a sanit
 
 ## 9. Improvements with more time
 
-- End-to-end tests for the main flows and tests for the genres/authors screens.
+- End-to-end tests for the main flows against the real API (for example with Playwright).
 - Code-splitting per route (lazy loading) to reduce the initial bundle.
 - Runtime configuration of the API URL (for example an `env.js` generated at container start).
 - Keep pagination in the URL; debounce and cancel in-flight searches.

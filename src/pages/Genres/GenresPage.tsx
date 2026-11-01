@@ -38,7 +38,11 @@ export function GenresPage() {
           rows={page.rows}
           getRowKey={(genre) => genre.id}
           renderActions={(genre) => (
-            <RowActions itemLabel={genre.name} onEdit={() => page.openEdit(genre)} onDelete={() => page.askDelete(genre)}>
+            <RowActions
+              itemLabel={genre.name}
+              onEdit={() => page.openEdit(genre)}
+              onDelete={() => page.askDelete(genre)}
+            >
               <RowActionButton
                 label="Ver livros"
                 ariaLabel={`Ver livros do gênero ${genre.name}`}

@@ -13,7 +13,14 @@ interface FormDialogProps {
 
 // Shell of every create/edit dialog: title, form element, cancel and submit buttons.
 // It is mounted only while open, so each opening starts with fresh form state.
-export function FormDialog({ title, submitLabel = 'Salvar', submitting = false, onSubmit, onClose, children }: FormDialogProps) {
+export function FormDialog({
+  title,
+  submitLabel = 'Salvar',
+  submitting = false,
+  onSubmit,
+  onClose,
+  children,
+}: FormDialogProps) {
   return (
     <Dialog open onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
       <form onSubmit={onSubmit} noValidate>

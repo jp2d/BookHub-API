@@ -14,7 +14,12 @@ export function RowActions({ itemLabel, onEdit, onDelete, children }: RowActions
   return (
     <>
       {children}
-      <RowActionButton label="Editar" ariaLabel={`Editar ${itemLabel}`} icon={<EditIcon fontSize="small" />} onClick={onEdit} />
+      <RowActionButton
+        label="Editar"
+        ariaLabel={`Editar ${itemLabel}`}
+        icon={<EditIcon fontSize="small" />}
+        onClick={onEdit}
+      />
       <RowActionButton
         label="Excluir"
         ariaLabel={`Excluir ${itemLabel}`}

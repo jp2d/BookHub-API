@@ -29,7 +29,11 @@ export function BooksPage() {
           rows={page.rows}
           getRowKey={(book) => book.id}
           renderActions={(book) => (
-            <RowActions itemLabel={book.title} onEdit={() => page.openEdit(book)} onDelete={() => page.askDelete(book)} />
+            <RowActions
+              itemLabel={book.title}
+              onEdit={() => page.openEdit(book)}
+              onDelete={() => page.askDelete(book)}
+            />
           )}
           sorting={{ key: list.sortBy, descending: list.descending, onSort: list.sort }}
           pagination={{

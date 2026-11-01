@@ -15,7 +15,12 @@ export function BookFormDialog({ book, submitting, onSubmit, onClose }: BookForm
   const { values, errors, setField, handleSubmit } = useBookForm({ book, onSubmit })
 
   return (
-    <FormDialog title={book ? 'Editar livro' : 'Novo livro'} submitting={submitting} onSubmit={handleSubmit} onClose={onClose}>
+    <FormDialog
+      title={book ? 'Editar livro' : 'Novo livro'}
+      submitting={submitting}
+      onSubmit={handleSubmit}
+      onClose={onClose}
+    >
       <TextField
         autoFocus
         label="Título"

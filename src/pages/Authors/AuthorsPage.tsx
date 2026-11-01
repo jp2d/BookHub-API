@@ -38,7 +38,11 @@ export function AuthorsPage() {
           rows={page.rows}
           getRowKey={(author) => author.id}
           renderActions={(author) => (
-            <RowActions itemLabel={author.name} onEdit={() => page.openEdit(author)} onDelete={() => page.askDelete(author)}>
+            <RowActions
+              itemLabel={author.name}
+              onEdit={() => page.openEdit(author)}
+              onDelete={() => page.askDelete(author)}
+            >
               <RowActionButton
                 label="Ver livros"
                 ariaLabel={`Ver livros de ${author.name}`}

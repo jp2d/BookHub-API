@@ -8,10 +8,10 @@ services:
     container_name: bookhub-web
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - '5173:80'
     healthcheck:
       # 127.0.0.1, not localhost: inside Alpine "localhost" resolves to IPv6, where nginx is not listening.
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
       interval: 10s
       timeout: 3s
       retries: 5

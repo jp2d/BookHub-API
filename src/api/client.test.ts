@@ -44,7 +44,9 @@ describe('api client', () => {
   })
 
   it('joins ASP.NET validation errors when there is no detail', async () => {
-    mockFetch(() => json({ title: 'One or more validation errors occurred.', errors: { name: ['Obrigatório.', 'Curto.'] } }, 400))
+    mockFetch(() =>
+      json({ title: 'One or more validation errors occurred.', errors: { name: ['Obrigatório.', 'Curto.'] } }, 400),
+    )
 
     const error = await api.post('/api/genres', {}).catch((e: unknown) => e)
 
