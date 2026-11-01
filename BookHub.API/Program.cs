@@ -13,6 +13,12 @@ using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = 1_000_000; // the payloads are tiny JSON documents
+});
+
 #region 🔹 Logs estruturados (Serilog)
 builder.Host.UseSerilog((context, services, logger) =>
 {
@@ -100,8 +106,11 @@ if (app.Environment.IsDevelopment())
 }
 
 // 🔹 Middleware
-app.UseExceptionHandler();
+// Request logging must wrap the exception handler: it then records the final status (409, 404...)
+// instead of seeing every handled business error as an unhandled 500.
 app.UseSerilogRequestLogging();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {

@@ -23,6 +23,7 @@ namespace BookHub.API.ErrorHandling
                 DomainException => (StatusCodes.Status400BadRequest, "Requisição inválida."),
                 NotFoundException => (StatusCodes.Status404NotFound, "Recurso não encontrado."),
                 ConflictException => (StatusCodes.Status409Conflict, "Conflito."),
+                BadHttpRequestException badRequest => (badRequest.StatusCode, "Requisição inválida."),
                 _ => (StatusCodes.Status500InternalServerError, "Erro interno do servidor.")
             };
 
