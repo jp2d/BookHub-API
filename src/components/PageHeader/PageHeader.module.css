@@ -1,0 +1,12 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--mui-spacing) * 2);
+  margin-bottom: calc(var(--mui-spacing) * 3);
+}
+
+.title {
+  margin-right: auto;
+  font-weight: 600;
+}
