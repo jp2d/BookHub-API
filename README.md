@@ -15,8 +15,9 @@ Application to search, register and maintain **genres**, **authors** and **books
 | API | ASP.NET Core 10 controllers, Swagger/OpenAPI (Swashbuckle) |
 | Persistence | EF Core 10 + Npgsql, code-first migrations |
 | Errors | Global `IExceptionHandler` returning RFC 9457 `ProblemDetails` |
+| Logging | Serilog: structured JSON in containers, readable console in Visual Studio; request logging |
 | Tests | xUnit, NSubstitute, `WebApplicationFactory`, Testcontainers (real PostgreSQL) |
-| Local infra | `docker-compose.yml` with PostgreSQL |
+| Local infra | `docker-compose.yml` with PostgreSQL and the API (multi-stage `Dockerfile`) |
 
 Domain rules implemented:
 
@@ -27,28 +28,39 @@ Domain rules implemented:
 
 ## 2. Running locally
 
-**Prerequisites:** .NET 10 SDK, Docker.
+**Prerequisites:** Docker (both options) and the .NET 10 SDK (option B and tests). In both options the API is served at `http://localhost:5254`, with Swagger at <http://localhost:5254/swagger>. **Run only one option at a time**, since both use port 5254.
+
+### Option A — Docker (API + database)
 
 ```bash
-# 1. Start PostgreSQL (db: bookhubdb, user: bookhub, password: bookhubpwd, port 5432)
-docker compose up -d postgres
-
-# 2. Run the API (in Development it applies pending migrations and seeds sample data)
-dotnet run --project BookHub.API --launch-profile http
+docker compose up -d --build   # builds the API image and starts PostgreSQL + API
+docker compose logs -f api     # structured (JSON) logs
+docker compose down            # stop; add -v to also delete the database volume
 ```
 
-**Sample data (seed).** On startup in Development, after migrations, the API checks whether the database already has any genre, author or book. If it is **completely empty**, it inserts a sample catalogue (8 genres, 10 authors, 25 books) in a single transaction; otherwise it does nothing, so existing data is never touched or duplicated. The data lives in `BookHub.Infrastructure/Persistence/Seed/DatabaseSeeder.cs`. To start from scratch, drop the volume and start again (`docker compose down -v`), or disable the seed with `Seed:Enabled=false`.
+The container runs with `ASPNETCORE_ENVIRONMENT=Development` on purpose: it applies migrations, seeds sample data and exposes Swagger, so a reviewer gets a working system with one command. A production deployment would run migrations as an explicit step and use `Production`.
 
-- Swagger UI: <http://localhost:5254/swagger>
-- Visual Studio: open `BookHub-API.slnx`; the `BookHub-API.slnLaunch` file sets the API as startup project.
+### Option B — Visual Studio (or the .NET CLI)
+
+```bash
+docker compose up -d postgres   # database only (db: bookhubdb, user: bookhub, password: bookhubpwd, port 5432)
+```
+
+- **Visual Studio 2026:** open `BookHub-API.slnx`. The `BookHub-API.slnLaunch` file makes `BookHub.API` the startup project (or right-click it → *Set as Startup Project*). Pick the `http` or `https` profile and press **F5**; the browser opens at `/swagger`. (`https` serves `https://localhost:7189`; the `http` profile serves `http://localhost:5254`.)
+- **.NET CLI:** `dotnet run --project BookHub.API --launch-profile http`
+
+In Development the API applies pending migrations and seeds sample data on startup.
+
+**Sample data (seed).** On startup in Development, after migrations, the API checks whether the database already has any genre, author or book. If it is **completely empty**, it inserts a sample catalogue (8 genres, 10 authors, 25 books) in a single transaction; otherwise it does nothing, so existing data is never touched or duplicated. The data lives in `BookHub.Infrastructure/Persistence/Seed/DatabaseSeeder.cs`. To start from scratch, drop the volume (`docker compose down -v`) and start again, or disable the seed with `Seed:Enabled=false`.
 
 **Configuration** (`BookHub.API/appsettings*.json`, overridable with environment variables):
 
 | Key | Default |
 |---|---|
-| `ConnectionStrings:DefaultConnection` | `Host=localhost;...` in `appsettings.Development.json`; `Host=postgres;...` in `appsettings.json` (Docker network name) |
+| `ConnectionStrings:DefaultConnection` | `Host=localhost;...` in `appsettings.Development.json`; `Host=postgres;...` in `appsettings.json` (Docker network name; also set explicitly in `docker-compose.yml`) |
 | `Seed:Enabled` | `true` (Development only); set to `false` to skip the sample data |
-| `Jwt:Key`, `Jwt:Issuer` | See [Known limitations](#9-known-limitations) |
+| `Cors:AllowedOrigins` | `http://localhost:5173` and `http://localhost:3000` (React dev servers). Override with `Cors__AllowedOrigins__0=...`; if empty, any origin is allowed |
+| `Logging:UseJson` | `false` (readable console); `true` in `docker-compose.yml` for structured JSON logs |
 
 **Database setup without running the API** (e.g. CI or Production):
 
@@ -150,37 +162,39 @@ _Alternatives considered:_ SQL Server (excellent tooling, but heavier image and 
 | Domain validation reports the first error only | No validation library, rules stay in the entity | Client fixes errors one at a time |
 | Simple services, no MediatR/CQRS | Low complexity | Cross-cutting behaviours (validation pipeline) need manual wiring |
 | Offset pagination | Easy for a UI with page numbers | Degrades on very large tables |
-| Migrations and seed applied on startup in Development only | Zero-setup local run with sample data | Production needs an explicit migration step; seed is all-or-nothing (skipped if any data exists) |
+| Migrations and seed applied on startup in Development only (the container runs in Development) | Zero-setup local run with sample data, one-command demo | Production needs an explicit migration step; seed is all-or-nothing (skipped if any data exists) |
+| No authentication | The challenge defines none; keeps the API and the SPA focused on the required CRUD | Endpoints are open; unsuitable for a public deployment as is |
+| Configurable CORS allow-list | Only the SPA origins can call the API from a browser | Origins must be updated when the frontend host/port changes |
 
 ## 8. Testing strategy
 
-106 automated tests, three levels:
+108 automated tests, three levels:
 
 - **Domain unit tests (`Domain/`)** — every invariant of the three entities, including ISBN normalisation and year boundaries.
 - **Service unit tests (`Application/`)** — business rules with mocked repositories: conflicts, not-found, blocked deletes, "nothing is saved when a rule fails", query normalisation.
-- **Integration tests (`Integration/`)** — the real API in-process (`WebApplicationFactory`) against a real PostgreSQL started by Testcontainers. They verify status codes, `ProblemDetails` content type, `Location` header, filters, sorting, paging, and database-enforced rules. The seeder is tested against fresh databases (populates an empty one, is idempotent, and leaves existing data alone). The API tests run with the seed disabled so their data stays deterministic.
+- **Integration tests (`Integration/`)** — the real API in-process (`WebApplicationFactory`) against a real PostgreSQL started by Testcontainers. They verify status codes, `ProblemDetails` content type, `Location` header, CORS headers, filters, sorting, paging, and database-enforced rules. The seeder is tested against fresh databases (populates an empty one, is idempotent, and leaves existing data alone). The API tests run with the seed disabled so their data stays deterministic.
 
 Real PostgreSQL was chosen over EF's in-memory provider because the in-memory provider ignores constraints, `ILIKE` and migrations, which are exactly what we want to verify. The cost is a Docker requirement for the integration tests. Tests use unique names instead of cleaning the database, so they are independent and can share one container.
 
 ## 9. Known limitations
 
-- **Authentication is scaffolded but not enforced.** JWT bearer validation and the Swagger "Authorize" button are configured, but there is no login endpoint and no `[Authorize]` on controllers.
-- **Secrets in configuration.** `Jwt:Key` and the database password are in `appsettings.json` for convenience; they are development values and must be replaced (user secrets / environment variables) for any real deployment.
-- **CORS allows any origin** (`AllowAll`), acceptable for local development only.
+- **No authentication or authorization.** The challenge does not require it, so all endpoints are open (a JWT scaffold was deliberately removed rather than shipping half-implemented security).
+- **Credentials in configuration.** The development database password is in `appsettings.json` and `docker-compose.yml`; it must be replaced (secrets store / environment variables) for any real deployment.
+- **CORS is an allow-list in configuration**, but falls back to allowing any origin if the list is empty.
 - **Genre-name uniqueness is case-insensitive in the service but the database index is case-sensitive**; a race between names differing only by case could slip through.
 - **ISBN checksum is not verified**, only its format.
 - **No optimistic concurrency:** concurrent updates to the same item are last-write-wins.
-- **The API is not yet part of `docker-compose.yml`** (only PostgreSQL is); a `Dockerfile` exists for the API but is not wired in.
-- **Observability** is limited to default ASP.NET Core logging (no structured/centralised logs, metrics or health checks).
+- **The container serves plain HTTP** (no TLS termination) and logs a harmless "Failed to determine the https port" warning from the HTTPS-redirection middleware.
+- **Observability** is limited to structured console logs: no centralised log shipping, metrics, tracing or health checks.
 
 ## 10. Improvements with more time
 
-- Enforce authentication/authorization (login endpoint, roles) and move secrets out of the repository.
+- Authentication/authorization (login endpoint, roles) and secrets moved out of the repository.
 - Case-insensitive unique index (`citext` or `lower(name)`), and a concurrency token (`xmin`/`RowVersion`).
 - FluentValidation (or similar) in a validation pipeline to return **all** errors at once.
-- Structured logging (Serilog), OpenTelemetry tracing/metrics, health checks.
-- Add the API to `docker-compose.yml` and a CI pipeline (build, test, publish image).
-- Restrict CORS to configured origins; add rate limiting.
+- Health checks (`/health` with a database probe), OpenTelemetry tracing/metrics, log shipping.
+- A CI pipeline (build, test, publish image) and TLS termination in front of the container.
+- Rate limiting.
 - Keyset pagination for large datasets; ISBN checksum validation.
 - Architecture decision records (ADRs) for the decisions above.
 

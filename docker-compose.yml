@@ -17,5 +17,22 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: BookHub.API/Dockerfile
+    container_name: bookhub-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Development: applies migrations, seeds sample data and exposes Swagger (demo shortcut)
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=bookhubdb;Username=bookhub;Password=bookhubpwd
+      Logging__UseJson: "true"
+    ports:
+      - "5254:8080"
+
 volumes:
   bookhub-pgdata:

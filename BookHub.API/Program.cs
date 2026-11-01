@@ -6,21 +6,41 @@ using BookHub.Application.Genres;
 using BookHub.Infrastructure;
 using BookHub.Infrastructure.Persistence.Repositories;
 using BookHub.Infrastructure.Persistence.Seed;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using System.Text;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
 
-#region 🔹 Configuração do CORS (para permitir acesso do frontend React)
+#region 🔹 Logs estruturados (Serilog)
+builder.Host.UseSerilog((context, services, logger) =>
+{
+    logger
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext();
+
+    if (context.Configuration.GetValue<bool>("Logging:UseJson"))
+        logger.WriteTo.Console(new RenderedCompactJsonFormatter());
+    else
+        logger.WriteTo.Console();
+});
+#endregion
+
+#region 🔹 Configuração do CORS (origens permitidas do frontend em Cors:AllowedOrigins)
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("Frontend", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
+        if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins);
+        else
+            policy.AllowAnyOrigin();
+
+        policy.AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
@@ -36,46 +56,6 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "API para gerenciamento de livros, autores e gêneros."
     });
-
-    // Autenticação JWT no Swagger
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "Informe apenas o token JWT (o prefixo 'Bearer' é adicionado automaticamente).",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    });
-
-    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-    });
-});
-#endregion
-
-#region 🔹 Configuração do JWT
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("Configuração 'Jwt:Key' não encontrada.");
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]
-    ?? throw new InvalidOperationException("Configuração 'Jwt:Issuer' não encontrada.");
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtIssuer,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-    };
 });
 #endregion
 
@@ -121,6 +101,7 @@ if (app.Environment.IsDevelopment())
 
 // 🔹 Middleware
 app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
@@ -130,10 +111,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");
-
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseCors("Frontend");
 
 app.MapControllers();
 

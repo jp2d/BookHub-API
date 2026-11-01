@@ -13,6 +13,9 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["BookHub.API/BookHub.API.csproj", "BookHub.API/"]
+COPY ["BookHub.Application/BookHub.Application.csproj", "BookHub.Application/"]
+COPY ["BookHub.Domain/BookHub.Domain.csproj", "BookHub.Domain/"]
+COPY ["BookHub.Infrastructure/BookHub.Infrastructure.csproj", "BookHub.Infrastructure/"]
 RUN dotnet restore "./BookHub.API/BookHub.API.csproj"
 COPY . .
 WORKDIR "/src/BookHub.API"
