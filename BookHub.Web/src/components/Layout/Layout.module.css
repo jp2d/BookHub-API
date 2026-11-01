@@ -1,0 +1,16 @@
+.root {
+  min-height: 100vh;
+  background: var(--mui-palette-background-default);
+}
+
+.toolbar {
+  gap: calc(var(--mui-spacing) * 3);
+}
+
+.brand {
+  font-weight: 700;
+}
+
+.content {
+  padding-block: calc(var(--mui-spacing) * 4);
+}
