@@ -13,7 +13,7 @@ indent_size = 4
 [**/Migrations/*.cs]
 charset = utf-8-bom
 
-[*.{csproj,json,yml,yaml,slnx}]
+[*.{csproj,json,yml,yaml,slnx,ts,tsx,js,css,html}]
 indent_size = 2
 
 [*.md]

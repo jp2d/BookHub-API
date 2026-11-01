@@ -1,10 +1,13 @@
 # BookHub
 
-Application to search, register and maintain **genres**, **authors** and **books**, built as a technical challenge.
+Application to search, register and maintain **genres**, **authors** and **books**, built as a technical challenge. One repository holds the whole solution:
 
-- **Backend:** .NET 10 REST API (this repository, `BookHub.*` projects)
+- **Backend:** .NET 10 REST API (`BookHub.*` projects)
+- **Frontend:** React single-page application (`BookHub.Web`)
 - **Database:** PostgreSQL 17
-- **Frontend:** React SPA in the [BookHub-Front](https://github.com/jp2d/BookHub-Front) repository (see [Frontend organization](#frontend-organization))
+- **Delivery:** Docker Compose runs the three pieces with one command
+
+**Contents:** [1. Solution overview](#1-solution-overview) · [2. Running locally](#2-running-locally) · [3. API reference](#3-api-reference) · [4. Chosen architecture](#4-chosen-architecture) · [5. Backend organization](#5-backend-organization) · [6. Frontend organization](#6-frontend-organization) · [7. Database choice](#7-database-choice) · [8. Main trade-offs](#8-main-trade-offs) · [9. Testing strategy](#9-testing-strategy) · [10. Known limitations](#10-known-limitations) · [11. Improvements with more time](#11-improvements-with-more-time)
 
 ---
 
@@ -16,8 +19,21 @@ Application to search, register and maintain **genres**, **authors** and **books
 | Persistence | EF Core 10 + Npgsql, code-first migrations |
 | Errors | Global `IExceptionHandler` returning RFC 9457 `ProblemDetails` |
 | Logging | Serilog: structured JSON in containers, readable console in Visual Studio; request logging |
-| Tests | xUnit, NSubstitute, `WebApplicationFactory`, Testcontainers (real PostgreSQL) |
-| Local infra | `docker-compose.yml` with PostgreSQL and the API (multi-stage `Dockerfile`) |
+| Frontend | React 19 + TypeScript, built with Vite |
+| UI and styles | MUI (Material UI) with the theme exposed as CSS variables; CSS Modules, one file per component |
+| Server state and routing | TanStack Query (caching, loading/error states, invalidation); React Router (filters, search and sorting live in the URL) |
+| Tests | Back: xUnit, NSubstitute, `WebApplicationFactory`, Testcontainers (real PostgreSQL). Front: Vitest, Testing Library, user-event, jsdom |
+| Lint and format | `.editorconfig` + `dotnet format` (back); oxlint + Prettier (front) |
+| Delivery | `docker-compose.yml` with PostgreSQL, the API (multi-stage `Dockerfile`) and the web app (Node build → nginx) |
+
+Repository layout:
+
+```
+BookHub.Domain/  BookHub.Application/  BookHub.Infrastructure/  BookHub.API/    .NET back-end (layered)
+BookHub.Tests/                                                                   back-end tests
+BookHub.Web/                                                                     React front-end
+docker-compose.yml                                                               PostgreSQL + API + web
+```
 
 Domain rules implemented:
 
@@ -26,34 +42,52 @@ Domain rules implemented:
 - A book requires a title and a publication year (1 up to the current year); ISBN is optional (10 or 13 characters, hyphens/spaces ignored).
 - An author or genre that still has books **cannot be deleted** (`409 Conflict`).
 
+What the user can do in the application:
+
+- **Genres and authors:** list with search and pagination, create, edit and delete. Deleting one that still has books is refused by the API and the message is shown.
+- **Books:** list with search, sorting (title, year) and pagination; create, edit and delete.
+- **See the relationship book ↔ author ↔ genre:** every book row shows its author and genre as chips. Clicking a chip filters the list by it; active filters are shown as removable chips. "View books" on an author or genre opens the books list already filtered, and the filter survives a page reload because it lives in the URL.
+- **Feedback:** inline validation in the forms (same rules as the API), success and error notifications (the server's own message is shown), confirmation before deleting.
+
 ## 2. Running locally
 
-**Prerequisites:** Docker (both options) and the .NET 10 SDK (option B and tests). In both options the API is served at `http://localhost:5254`, with Swagger at <http://localhost:5254/swagger>. **Run only one option at a time**, since both use port 5254.
+**Prerequisites:** Docker for everything; the .NET 10 SDK to develop or test the back-end; Node.js 24 to develop or test the front-end.
 
-### Option A — Docker (API + database)
+| Piece | URL |
+|---|---|
+| Web application | <http://localhost:5173> |
+| API | <http://localhost:5254> (Swagger at <http://localhost:5254/swagger>, health check at `/health`) |
+| PostgreSQL | `localhost:5432` (db `bookhubdb`, user `bookhub`, password `bookhubpwd`) |
+
+### Option A — Everything in Docker (recommended)
 
 ```bash
-docker compose up -d --build   # builds the API image and starts PostgreSQL + API
+docker compose up -d --build   # builds the API and web images; starts PostgreSQL, API and web
+docker compose ps              # postgres, api and web become "healthy"
 docker compose logs -f api     # structured (JSON) logs
 docker compose down            # stop; add -v to also delete the database volume
 ```
 
-The container runs with `ASPNETCORE_ENVIRONMENT=Development` on purpose: it applies migrations, seeds sample data and exposes Swagger, so a reviewer gets a working system with one command. A production deployment would run migrations as an explicit step and use `Production`. The API container has a health check on `/health`, so `docker compose ps` shows it as `healthy` once migrations and the seed have finished.
+The services start in dependency order (PostgreSQL → API → web), each waiting for the previous one to be healthy. The API container runs with `ASPNETCORE_ENVIRONMENT=Development` on purpose: it applies migrations, seeds sample data and exposes Swagger, so a reviewer gets a working system with one command. A production deployment would run migrations as an explicit step and use `Production`. The web container serves the static bundle with nginx: hashed assets are cached for a year and every other route falls back to `index.html`, so deep links such as `/books?authorId=…` work on reload.
 
-### Option B — Visual Studio (or the .NET CLI)
+### Option B — Development with hot reload
 
-```bash
-docker compose up -d postgres   # database only (db: bookhubdb, user: bookhub, password: bookhubpwd, port 5432)
-```
+The API and the web app use ports 5254 and 5173. When you run one of them from your machine, do not start its container.
+
+| Goal | Commands |
+|---|---|
+| Develop the front-end (API in Docker) | `docker compose up -d postgres api`, then `cd BookHub.Web && npm install && npm run dev` |
+| Develop the back-end (database in Docker) | `docker compose up -d postgres`, then run the API from Visual Studio or the CLI (below); add `npm run dev` in `BookHub.Web` if you also need the UI |
 
 - **Visual Studio 2026:** open `BookHub-API.slnx`. The `BookHub-API.slnLaunch` file makes `BookHub.API` the startup project (or right-click it → *Set as Startup Project*). Pick the `http` or `https` profile and press **F5**; the browser opens at `/swagger`. (`https` serves `https://localhost:7189`; the `http` profile serves `http://localhost:5254`.)
 - **.NET CLI:** `dotnet run --project BookHub.API --launch-profile http`
+- **Front-end:** `npm run dev` serves <http://localhost:5173>. The port is fixed on purpose (`strictPort`) so it always matches the API's CORS allow-list.
 
 In Development the API applies pending migrations and seeds sample data on startup.
 
 **Sample data (seed).** On startup in Development, after migrations, the API checks whether the database already has any genre, author or book. If it is **completely empty**, it inserts a sample catalogue (8 genres, 10 authors, 25 books) in a single transaction; otherwise it does nothing, so existing data is never touched or duplicated. The data lives in `BookHub.Infrastructure/Persistence/Seed/DatabaseSeeder.cs`. To start from scratch, drop the volume (`docker compose down -v`) and start again, or disable the seed with `Seed:Enabled=false`.
 
-**Configuration** (`BookHub.API/appsettings*.json`, overridable with environment variables):
+**Configuration**
 
 | Key | Default |
 |---|---|
@@ -61,6 +95,9 @@ In Development the API applies pending migrations and seeds sample data on start
 | `Seed:Enabled` | `true` (Development only); set to `false` to skip the sample data |
 | `Cors:AllowedOrigins` | `http://localhost:5173` and `http://localhost:3000` (React dev servers). Override with `Cors__AllowedOrigins__0=...`; if empty, any origin is allowed |
 | `Logging:UseJson` | `false` (readable console); `true` in `docker-compose.yml` for structured JSON logs |
+| `VITE_API_URL` (front-end) | `http://localhost:5254`. Base URL of the API. Copy `BookHub.Web/.env.example` to `BookHub.Web/.env` for local development. In Docker it is a build argument (`VITE_API_URL=... docker compose up -d --build`); it is baked into the bundle, so changing it requires a rebuild |
+
+Back-end settings live in `BookHub.API/appsettings*.json` and can be overridden with environment variables.
 
 **Database setup without running the API** (e.g. CI or Production):
 
@@ -71,11 +108,23 @@ dotnet ef database update --project BookHub.Infrastructure
 
 `DesignTimeDbContextFactory` reads `ConnectionStrings__DefaultConnection` or falls back to the local Docker database.
 
-**Tests** (integration tests need Docker running; they start their own PostgreSQL container):
+**Tests**
 
 ```bash
-dotnet test BookHub.Tests/BookHub.Tests.csproj
+dotnet test BookHub.Tests/BookHub.Tests.csproj    # integration tests need Docker running; they start their own PostgreSQL container
+cd BookHub.Web && npm ci && npm test              # no API or Docker needed: fetch is mocked
 ```
+
+**Front-end scripts** (run inside `BookHub.Web`)
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm run build` | Type-check (`tsc -b`) and production build |
+| `npm run lint` | oxlint |
+| `npm run format` / `npm run format:check` | Format the code with Prettier / check that it is formatted |
+| `npm test` | Runs all tests once |
+| `npm run test:watch` | Tests in watch mode |
 
 ## 3. API reference
 
@@ -106,7 +155,7 @@ List responses: `{ "items": [...], "page": 1, "pageSize": 10, "totalCount": 42, 
 
 ## 4. Chosen architecture
 
-A layered ("clean-ish") architecture with dependencies pointing inwards:
+**Back-end.** A layered ("clean-ish") architecture with dependencies pointing inwards:
 
 ```
 BookHub.API  ─────────►  BookHub.Application  ─────────►  BookHub.Domain
@@ -120,6 +169,16 @@ BookHub.API  ─────────►  BookHub.Application  ────�
 - **API** is the composition root: all dependency injection is declared in `Program.cs`.
 
 **Why this shape:** the problem is small, but separating responsibilities keeps rules testable without a database, makes the persistence technology replaceable, and gives new developers an obvious place for each kind of change. I kept it deliberately lean: no CQRS/MediatR, no generic repository, no mapping library.
+
+**Front-end.** A feature-oriented SPA with a thin, generic core. Dependencies point in one direction:
+
+```
+pages  ──►  components, hooks, validation  ──►  api  ──►  (HTTP) BookHub API
+```
+
+- **`api/`** knows how to talk to the API and nothing about screens.
+- **`components/`** and **`hooks/`** are generic building blocks (no entity-specific knowledge).
+- **`pages/`** only configure those blocks for genres, authors and books.
 
 ## 5. Backend organization
 
@@ -144,7 +203,68 @@ Key decisions:
 - **Input hardening.** `pageSize` is capped at 100 and the page number at 1,000,000 (so the offset cannot overflow); request bodies are limited to 1 MB (`413` beyond that); the `Server` header is removed; client errors raised by the server keep their own status instead of becoming `500`.
 - **Accurate logs.** The request-logging middleware wraps the exception handler, so a handled `409`/`404`/`400` is logged at Information with its real status, and only genuine `500`s are logged as errors (with the exception).
 
-## 6. Database choice
+## 6. Frontend organization
+
+```
+BookHub.Web/
+  src/
+    api/          client, ApiError, buildQuery, config, types, createCrudHooks, genres/authors/books hooks
+    components/   generic UI: Layout, DataTable, PageHeader, FormDialog, NameFormDialog, AsyncAutocomplete,
+                  SearchField, FilterChips, QueryState, ConfirmDialog, RowActions, Notification
+    hooks/        useCrudPage, useListState, useDebouncedValue
+    pages/        Genres/, Authors/, Books/ (+ BookFormDialog/)
+    validation/   pure validation rules mirroring the API's domain limits
+    test/         test helpers (mockApi, renderWithProviders, setup)
+    routes.ts     route paths and main navigation
+    theme.ts      single source of design tokens
+  Dockerfile, nginx.conf, vite.config.ts, package.json, ...
+```
+
+### Code conventions
+
+Each file has one responsibility, so a component folder is split by role:
+
+```
+components/Name/
+  Name.tsx          markup only
+  useName.ts        state, effects and handlers (only when there is logic)
+  Name.module.css   styles (only when needed)
+  index.ts          barrel
+```
+
+- **Markup / logic / styles are separated.** Components render; hooks decide; CSS Modules style. There are no inline `sx` or `style` props for layout.
+- **Design tokens have one source.** `theme.ts` uses MUI's `cssVariables`, so CSS Modules read `var(--mui-palette-*)`, `var(--mui-spacing)` and `var(--mui-shape-borderRadius)`. `StyledEngineProvider injectFirst` makes the project's CSS override MUI's.
+- **Imports use the `@/` alias** (`src`) and barrels (`@/components`, `@/api`), avoiding deep relative paths.
+- **`src/api/` is split by responsibility:** `config.ts` (base URL), `ApiError.ts` (error type and parsing of `problem+json`), `buildQuery.ts`, `client.ts` (fetch wrapper), `types.ts`. Routes are constants in `routes.ts`; there are no magic path strings.
+
+### Generic building blocks (reuse over repetition)
+
+A screen for a new entity is mostly configuration. The same blocks serve genres, authors and books:
+
+| Block | Responsibility | Used by |
+|---|---|---|
+| `createCrudHooks(resource)` | TanStack Query hooks (list, one, create, update, delete) and cache invalidation for any REST resource following the API convention | genres, authors, books |
+| `useCrudPage` | Queries, form/confirm dialogs and mutations with user feedback; receives the screen's list state | all three pages |
+| `useListState` | Search and pagination state (0-based UI page ↔ 1-based API page) | genres, authors |
+| `DataTable` | Table with server-side pagination and optional sorting; screens only describe columns | all three pages |
+| `FormDialog` + `NameFormDialog` | Dialog shell and a one-field create/edit dialog | genres, authors (the shell also by books) |
+| `AsyncAutocomplete` | Select-one field that searches the API as the user types | book form (author, genre) |
+| `QueryState`, `PageHeader`, `RowActions`, `FilterChips`, `ConfirmDialog` | Loading/error/empty states, header, row actions, removable filters, confirmation | all pages |
+
+Genres and authors differ only in their columns, texts and validator. Books add what is genuinely specific: filters/sorting in the URL (`useBooksListState`), chip columns (`booksColumns`) and a multi-field form (`useBookForm`).
+
+### Technical decisions
+
+- **MUI + CSS Modules.** MUI provides accessible, consistent tables, dialogs, forms and an autocomplete, which is the fastest route to a functional and organized interface. Styles still live in separate CSS files, as required by the code conventions, using the theme as the shared token source.
+- **TanStack Query for server state.** It removes hand-written loading/error/caching code. `keepPreviousData` avoids flicker while paging. Renaming a genre or author also invalidates the cached books list, whose rows embed those names.
+- **No form library.** The forms are small (one field, five fields). Plain state plus pure validation functions keep the dependency list short and make the rules trivially testable.
+- **Filters, search and sorting in the URL (books).** "View books of this author" is just a link, a reload keeps the view, and views can be shared. Pagination stays local state.
+- **Validation mirrors the API.** The same limits and rules (required fields, name/title length, year between 1 and the current year, ISBN with 10 or 13 digits) give instant feedback; the API remains the source of truth and its messages are displayed when it rejects something.
+- **Server-side search, sorting and pagination.** The UI never downloads the whole catalog; the autocompletes ask for at most 20 suggestions at a time, so they keep working with large catalogs.
+- **Notifications.** Success messages disappear after 3 s with a fade-out; errors stay 5 s because they need to be read.
+- **nginx for the container.** A static bundle needs no Node runtime in production: the image is small and serves deep links correctly.
+
+## 7. Database choice
 
 **PostgreSQL**, because:
 
@@ -155,7 +275,9 @@ Key decisions:
 
 _Alternatives considered:_ SQL Server (excellent tooling, but heavier image and licensing for non-dev use); MySQL (works, but weaker defaults for constraints and no `ILIKE`).
 
-## 7. Main trade-offs
+## 8. Main trade-offs
+
+**Back-end**
 
 | Decision | Benefit | Cost |
 |---|---|---|
@@ -165,63 +287,71 @@ _Alternatives considered:_ SQL Server (excellent tooling, but heavier image and 
 | Domain validation reports the first error only | No validation library, rules stay in the entity | Client fixes errors one at a time |
 | Simple services, no MediatR/CQRS | Low complexity | Cross-cutting behaviours (validation pipeline) need manual wiring |
 | Offset pagination | Easy for a UI with page numbers | Degrades on very large tables |
-| Migrations and seed applied on startup in Development only (the container runs in Development) | Zero-setup local run with sample data, one-command demo | Production needs an explicit migration step; seed is all-or-nothing (skipped if any data exists) |
+| Migrations and seed applied on startup in Development only (the containers run in Development) | Zero-setup local run with sample data, one-command demo | Production needs an explicit migration step; seed is all-or-nothing (skipped if any data exists) |
 | No authentication | The challenge defines none; keeps the API and the SPA focused on the required CRUD | Endpoints are open; unsuitable for a public deployment as is |
 | Configurable CORS allow-list | Only the SPA origins can call the API from a browser | Origins must be updated when the frontend host/port changes |
 
-## 8. Testing strategy
+**Front-end**
 
-128 automated tests, three levels:
+| Decision | Benefit | Cost |
+|---|---|---|
+| One folder per component (tsx + hook + css + index) | Single responsibility per file, easy to navigate | More files than a single-file component |
+| CSS Modules instead of MUI `sx` | Styles separated from markup, plain CSS | Needs `injectFirst` and CSS variables to cooperate with MUI |
+| Generic CRUD blocks | New entities are mostly configuration; no duplicated logic | One level of indirection to learn (`createCrudHooks`, `useCrudPage`) |
+| No form library | Fewer dependencies, simple tests | Manual wiring if forms grow much larger |
+| Client validation duplicates API rules | Instant feedback | Rules must be kept in sync with the back-end |
+| API URL baked at build time | Simple static image, no runtime config | Changing the API address needs a rebuild |
+
+**Repository**
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Monorepo with a single `docker-compose.yml` | One clone, one command, one place to review; back and front versioned together | They cannot be released independently; the repository mixes two toolchains (.NET and Node) |
+
+## 9. Testing strategy
+
+**Back-end: 128 automated tests, three levels**
 
 - **Domain unit tests (`Domain/`)** — every invariant of the three entities, including ISBN normalisation and year boundaries.
 - **Service unit tests (`Application/`)** — business rules with mocked repositories: conflicts, not-found, blocked deletes, "nothing is saved when a rule fails", query normalisation (including the page cap), and the mapping of exceptions to HTTP statuses in the global handler.
 - **Integration tests (`Integration/`)** — the real API in-process (`WebApplicationFactory`) against a real PostgreSQL started by Testcontainers. They verify status codes, that every error (including the ones raised by the framework: malformed JSON, wrong media type, unknown route) is `application/problem+json`, `Location` header, CORS headers, filters, sorting, paging, and database-enforced rules. The seeder and the case-insensitive genre index are tested against fresh databases (the seeder populates an empty one, is idempotent and leaves existing data alone; the database itself rejects `"TERROR"` when `"Terror"` exists). `/health` is covered too. The API tests run with the seed disabled so their data stays deterministic.
 
-Real PostgreSQL was chosen over EF's in-memory provider because the in-memory provider ignores constraints, `ILIKE` and migrations, which are exactly what we want to verify. The cost is a Docker requirement for the integration tests. Tests use unique names instead of cleaning the database, so they are independent and can share one container. Code style is defined in `.editorconfig` and checked with `dotnet format whitespace BookHub-API.slnx --verify-no-changes`.
+Real PostgreSQL was chosen over EF's in-memory provider because the in-memory provider ignores constraints, `ILIKE` and migrations, which are exactly what we want to verify. The cost is a Docker requirement for the integration tests. Tests use unique names instead of cleaning the database, so they are independent and can share one container.
 
-## 9. Known limitations
+**Front-end: 76 automated tests in 7 files**, none of which need the API or Docker because `fetch` is replaced by a mock that also records every request:
 
-- **No authentication or authorization.** The challenge does not require it, so all endpoints are open (a JWT scaffold was deliberately removed rather than shipping half-implemented security).
+- **API client (`api/*.test.ts`)** — query-string building, JSON bodies, `204 No Content`, conversion of `problem+json` and ASP.NET validation errors into `ApiError`, fallback for non-JSON errors, and the "API unreachable" case.
+- **Validation (`validation/*.test.ts`)** — required/length rules, ISBN normalisation (10 and 13 digits, check digit `X`), year boundaries, and that the book form reports every error at once.
+- **Books screen (`pages/Books/BooksPage.test.tsx`)** — rendered with the same providers as the app: listing with author/genre, empty and error states with retry, chip and URL filters, form validation without calling the API, the exact POST payload (normalised ISBN), a server `400` keeping the dialog open, and delete with confirmation, cancellation and a `409` refusal.
+- **Genres and authors screens (`pages/Genres|Authors/*.test.tsx`)** — both screens do the same thing with different texts, so one parametrised suite (`src/test/nameCrudScreenSuite.tsx`) describes the behaviour and each screen supplies its configuration: listing, empty state, debounced server-side search, next page, "View books" navigation, create (validation, trimmed payload, server rejection keeping the dialog open), edit (pre-filled, `PUT` payload) and delete (confirm, cancel, refusal by the API).
+
+The front-end tests assert behaviour the user sees, not implementation details. As a sanity check, deliberately removing the ISBN normalisation was caught by the payload test.
+
+**Code style.** A single `.editorconfig` covers the repository. The back-end is checked with `dotnet format whitespace BookHub-API.slnx --verify-no-changes`; the front-end with `npm run format:check` (Prettier) and `npm run lint` (oxlint).
+
+## 10. Known limitations
+
+- **No authentication or authorization**, in the API or the SPA. The challenge does not require it, so all endpoints are open (a JWT scaffold was deliberately removed rather than shipping half-implemented security).
 - **Credentials in configuration.** The development database password is in `appsettings.json` and `docker-compose.yml`; it must be replaced (secrets store / environment variables) for any real deployment.
 - **CORS is an allow-list in configuration**, but falls back to allowing any origin if the list is empty.
+- **Plain HTTP in the containers** (no TLS termination). The API logs a harmless "Failed to determine the https port" warning from the HTTPS-redirection middleware, and the API address is baked into the web bundle at build time, so changing it needs a rebuild.
+- **Observability** is limited to structured console logs and a health check: no centralised log shipping, metrics or tracing.
 - **ISBN checksum is not verified**, only its format.
 - **No optimistic concurrency:** concurrent updates to the same item are last-write-wins.
-- **The container serves plain HTTP** (no TLS termination) and logs a harmless "Failed to determine the https port" warning from the HTTPS-redirection middleware.
-- **Observability** is limited to structured console logs and a health check: no centralised log shipping, metrics or tracing.
+- **No end-to-end tests** (for example Playwright): the screens are tested with a mocked `fetch`, never against the real API.
+- **UI texts are in Portuguese only**; there is no i18n layer.
+- **Bundle size.** The production build is one chunk above 500 kB (mostly MUI); routes are not code-split.
+- **Only filters, search and sorting are in the URL**; the current page and page size reset on reload. A filter with an unknown id in the URL shows an empty list and a chip without the name.
+- **Accessibility** is not audited beyond accessible names on row actions, chips and form fields.
 
-## 10. Improvements with more time
+## 11. Improvements with more time
 
-- Authentication/authorization (login endpoint, roles) and secrets moved out of the repository.
+- Authentication/authorization (login endpoint, roles), secrets moved out of the repository, and TLS in front of the containers.
 - A concurrency token (`xmin`/`RowVersion`) for optimistic concurrency.
 - FluentValidation (or similar) in a validation pipeline to return **all** errors at once.
 - OpenTelemetry tracing/metrics and log shipping.
-- A CI pipeline (build, test, publish image) and TLS termination in front of the container.
+- A CI pipeline (build, lint, test, publish images).
 - Rate limiting.
 - Keyset pagination for large datasets; ISBN checksum validation.
 - Architecture decision records (ADRs) for the decisions above.
-
-## Frontend organization
-
-The frontend is a React 19 + TypeScript single-page application (Vite, MUI, TanStack Query, React Router) in its own repository: **[BookHub-Front](https://github.com/jp2d/BookHub-Front)**. Its README documents the full structure, conventions, decisions, trade-offs, tests and limitations; this is the summary.
-
-**What it does:** list, create, edit and delete genres, authors and books, with server-side search and pagination. The books screen sorts by title/year and shows each book's author and genre as clickable chips that filter the list; "View books" on an author or genre opens the books list already filtered (filters live in the URL, so they survive a reload).
-
-**How it consumes this API:** a thin `fetch` client turns `application/problem+json` responses into typed errors, so the API's messages (400 validation, 409 conflicts) are shown to the user as they are. Generic hooks and components (`createCrudHooks`, `useCrudPage`, `DataTable`, `AsyncAutocomplete`, ...) are configured per entity, so genres, authors and books share the same code. Client-side validation mirrors the domain rules of this API; the API remains the source of truth.
-
-**Organization:** every component is split into markup (`.tsx`), logic (hook `.ts`) and styles (`.module.css`); design tokens come from a single MUI theme exposed as CSS variables. 76 automated tests (Vitest + Testing Library) run without the API because `fetch` is mocked, and the code is formatted with Prettier.
-
-**Running the whole system**
-
-```bash
-# 1) This repository: API + PostgreSQL (migrations and sample data are applied on startup)
-docker compose up -d --build
-
-# 2) The BookHub-Front repository: React app served by nginx
-git clone https://github.com/jp2d/BookHub-Front.git
-cd BookHub-Front
-docker compose up -d --build
-```
-
-Open <http://localhost:5173> (API at <http://localhost:5254>, Swagger at <http://localhost:5254/swagger>). For frontend development with hot reload, run `npm install && npm run dev` in the BookHub-Front repository instead of its container. Both use port 5173, which is the origin allowed by this API's CORS allow-list (`Cors:AllowedOrigins`).
-
-**Note on repositories:** the challenge asks for back-end and front-end in one repository. They are kept in two repositories here (independent build and deploy), linked from both READMEs; they can be merged into a monorepo or a submodule without code changes.
+- Front-end: end-to-end tests against the real API (for example Playwright), code-splitting per route, runtime configuration of the API URL (for example an `env.js` generated at container start), pagination in the URL with cancellation of in-flight searches, i18n, a dark theme and an accessibility pass.

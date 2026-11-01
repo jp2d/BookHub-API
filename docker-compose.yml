@@ -45,5 +45,25 @@ services:
       retries: 5
       start_period: 20s
 
+  web:
+    build:
+      context: ./BookHub.Web
+      args:
+        # Where the browser finds the API (it is baked into the bundle at build time).
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5254}
+    container_name: bookhub-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: inside Alpine "localhost" resolves to IPv6, where nginx is not listening.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   bookhub-pgdata:

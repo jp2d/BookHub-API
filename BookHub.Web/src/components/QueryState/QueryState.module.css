@@ -1,0 +1,10 @@
+.centered {
+  display: flex;
+  justify-content: center;
+  padding-block: calc(var(--mui-spacing) * 6);
+}
+
+.empty {
+  padding-block: calc(var(--mui-spacing) * 6);
+  text-align: center;
+}
