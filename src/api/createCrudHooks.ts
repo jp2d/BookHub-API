@@ -29,6 +29,15 @@ export function createCrudHooks<TEntity, TRequest, TParams extends object = List
     })
   }
 
+  // Fetches a single item; stays idle while `id` is undefined (e.g. no filter applied).
+  function useOne(id: string | undefined) {
+    return useQuery({
+      queryKey: [resource, 'one', id],
+      queryFn: () => api.get<TEntity>(`${path}/${id}`),
+      enabled: Boolean(id),
+    })
+  }
+
   function useCreate() {
     const invalidate = useInvalidate()
     return useMutation({
@@ -53,7 +62,7 @@ export function createCrudHooks<TEntity, TRequest, TParams extends object = List
     })
   }
 
-  return { useList, useCreate, useUpdate, useDelete }
+  return { useList, useOne, useCreate, useUpdate, useDelete }
 }
 
 export type CrudHooks<TEntity, TRequest, TParams extends object = ListParams> = ReturnType<
