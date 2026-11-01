@@ -33,6 +33,17 @@ services:
       Logging__UseJson: "true"
     ports:
       - "5254:8080"
+    healthcheck:
+      # The runtime image has no curl/wget, so the probe talks to /health through bash's /dev/tcp.
+      test:
+        - CMD
+        - bash
+        - -c
+        - exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health HTTP/1.0\r\n\r\n' >&3 && head -1 <&3 | grep -q ' 200 '
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
 
 volumes:
   bookhub-pgdata:

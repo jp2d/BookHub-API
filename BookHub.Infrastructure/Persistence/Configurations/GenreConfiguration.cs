@@ -16,7 +16,8 @@ namespace BookHub.Infrastructure.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(Genre.NameMaxLength);
 
-            builder.HasIndex(g => g.Name).IsUnique();
+            // The unique, case-insensitive index on lower("Name") is created by raw SQL in the
+            // CaseInsensitiveUniqueGenreName migration: EF Core cannot model expression indexes.
 
             builder.Navigation(g => g.Books).UsePropertyAccessMode(PropertyAccessMode.Field);
         }

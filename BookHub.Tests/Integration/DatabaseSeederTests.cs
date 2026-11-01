@@ -3,7 +3,6 @@ using BookHub.Infrastructure;
 using BookHub.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 
 namespace BookHub.Tests.Integration
 {
@@ -17,24 +16,7 @@ namespace BookHub.Tests.Integration
             _factory = factory;
         }
 
-        private async Task<BookHubContext> CreateEmptyDatabaseAsync()
-        {
-            var databaseName = $"seed_{Guid.NewGuid():N}";
-
-            await using (var admin = new NpgsqlConnection(_factory.ConnectionString))
-            {
-                await admin.OpenAsync();
-                await using var create = new NpgsqlCommand($"CREATE DATABASE {databaseName}", admin);
-                await create.ExecuteNonQueryAsync();
-            }
-
-            var connectionString = new NpgsqlConnectionStringBuilder(_factory.ConnectionString) { Database = databaseName };
-            var options = new DbContextOptionsBuilder<BookHubContext>().UseNpgsql(connectionString.ConnectionString).Options;
-
-            var context = new BookHubContext(options);
-            await context.Database.MigrateAsync();
-            return context;
-        }
+        private Task<BookHubContext> CreateEmptyDatabaseAsync() => TestDatabase.CreateMigratedAsync(_factory.ConnectionString);
 
         private static DatabaseSeeder NewSeeder(BookHubContext context) =>
             new(context, NullLogger<DatabaseSeeder>.Instance);
