@@ -54,7 +54,11 @@ export function DataTable<T>({ columns, rows, getRowKey, renderActions, paginati
           <TableHead>
             <TableRow>
               {columns.map((column) => (
-                <TableCell key={column.key} align={column.align} sortDirection={sorting?.key === column.key ? (sorting.descending ? 'desc' : 'asc') : false}>
+                <TableCell
+                  key={column.key}
+                  align={column.align}
+                  sortDirection={sorting?.key === column.key ? (sorting.descending ? 'desc' : 'asc') : false}
+                >
                   {column.sortable && sorting ? (
                     <TableSortLabel
                       active={sorting.key === column.key}

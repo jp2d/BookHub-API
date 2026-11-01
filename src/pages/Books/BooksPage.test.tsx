@@ -91,7 +91,9 @@ describe('BooksPage', () => {
 
     expect(await screen.findByText('Autor: George Orwell')).toBeInTheDocument()
     await waitFor(() =>
-      expect(requests.some((r) => r.url.pathname === '/api/books' && r.url.searchParams.get('authorId') === orwell.id)).toBe(true),
+      expect(
+        requests.some((r) => r.url.pathname === '/api/books' && r.url.searchParams.get('authorId') === orwell.id),
+      ).toBe(true),
     )
   })
 
@@ -133,7 +135,9 @@ describe('BooksPage', () => {
 
     it('sends the normalized payload and confirms success', async () => {
       const requests = setupApi((request) =>
-        request.method === 'POST' && request.url.pathname === '/api/books' ? json({ ...bookFoundation, title: 'Duna' }, 201) : undefined,
+        request.method === 'POST' && request.url.pathname === '/api/books'
+          ? json({ ...bookFoundation, title: 'Duna' }, 201)
+          : undefined,
       )
       const { user } = renderWithProviders(<BooksPage />)
       await screen.findByText('1984')
@@ -198,7 +202,9 @@ describe('BooksPage', () => {
 
     it('shows the server message when the deletion is refused', async () => {
       setupApi((request) =>
-        request.method === 'DELETE' ? problem(409, 'Conflito.', 'A operação viola um relacionamento existente.') : undefined,
+        request.method === 'DELETE'
+          ? problem(409, 'Conflito.', 'A operação viola um relacionamento existente.')
+          : undefined,
       )
       const { user } = renderWithProviders(<BooksPage />)
 
