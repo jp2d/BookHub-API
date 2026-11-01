@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from '@/components'
+import { AuthorsPage } from '@/pages/Authors'
 import { GenresPage } from '@/pages/Genres'
 import { PlaceholderPage } from '@/pages/Placeholder'
 import { ROUTES } from '@/routes'
@@ -10,7 +11,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to={ROUTES.books} replace />} />
         <Route path={ROUTES.books} element={<PlaceholderPage title="Livros" />} />
-        <Route path={ROUTES.authors} element={<PlaceholderPage title="Autores" />} />
+        <Route path={ROUTES.authors} element={<AuthorsPage />} />
         <Route path={ROUTES.genres} element={<GenresPage />} />
         <Route path="*" element={<Navigate to={ROUTES.books} replace />} />
       </Route>
