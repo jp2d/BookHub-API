@@ -1,5 +1,6 @@
 export { ConfirmDialog } from './ConfirmDialog'
-export { DataTable, type DataTableColumn, type DataTablePagination } from './DataTable'
+export { DataTable, type DataTableColumn, type DataTablePagination, type DataTableSorting } from './DataTable'
+export { FilterChips, type ActiveFilter } from './FilterChips'
 export { FormDialog } from './FormDialog'
 export { Layout } from './Layout'
 export { NameFormDialog } from './NameFormDialog'

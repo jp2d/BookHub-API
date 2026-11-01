@@ -5,8 +5,8 @@ import styles from './PageHeader.module.css'
 
 interface PageHeaderProps {
   title: string
-  actionLabel: string
-  onAction: () => void
+  actionLabel?: string
+  onAction?: () => void // the primary action button is rendered only when both are provided
   children?: ReactNode // search and filters
 }
 
@@ -17,9 +17,11 @@ export function PageHeader({ title, actionLabel, onAction, children }: PageHeade
         {title}
       </Typography>
       {children}
-      <Button variant="contained" startIcon={<AddIcon />} onClick={onAction}>
-        {actionLabel}
-      </Button>
+      {actionLabel && onAction && (
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onAction}>
+          {actionLabel}
+        </Button>
+      )}
     </div>
   )
 }

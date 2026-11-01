@@ -1,3 +1,4 @@
+import AutoStoriesIcon from '@mui/icons-material/AutoStories'
 import type { Genre } from '@/api'
 import {
   ConfirmDialog,
@@ -5,6 +6,7 @@ import {
   NameFormDialog,
   PageHeader,
   QueryState,
+  RowActionButton,
   RowActions,
   SearchField,
   type DataTableColumn,
@@ -36,7 +38,14 @@ export function GenresPage() {
           rows={page.rows}
           getRowKey={(genre) => genre.id}
           renderActions={(genre) => (
-            <RowActions itemLabel={genre.name} onEdit={() => page.openEdit(genre)} onDelete={() => page.askDelete(genre)} />
+            <RowActions itemLabel={genre.name} onEdit={() => page.openEdit(genre)} onDelete={() => page.askDelete(genre)}>
+              <RowActionButton
+                label="Ver livros"
+                ariaLabel={`Ver livros do gênero ${genre.name}`}
+                icon={<AutoStoriesIcon fontSize="small" />}
+                onClick={() => page.viewBooks(genre)}
+              />
+            </RowActions>
           )}
           pagination={{
             page: list.page,

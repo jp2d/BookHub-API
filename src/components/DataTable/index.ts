@@ -1,1 +1,1 @@
-export { DataTable, type DataTableColumn, type DataTablePagination } from './DataTable'
+export { DataTable, type DataTableColumn, type DataTablePagination, type DataTableSorting } from './DataTable'

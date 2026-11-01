@@ -1,0 +1,7 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--mui-spacing) * 1);
+  margin-bottom: calc(var(--mui-spacing) * 2);
+}
