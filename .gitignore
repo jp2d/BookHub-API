@@ -55,3 +55,8 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Visual Studio per-user files (never commit)
+.vs/
+*.csproj.user
+*.user

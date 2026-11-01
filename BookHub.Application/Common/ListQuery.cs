@@ -4,6 +4,7 @@ namespace BookHub.Application.Common
     {
         public const int DefaultPageSize = 10;
         public const int MaxPageSize = 100;
+        public const int MaxPage = 1_000_000;
     }
 
     public record ListQuery(string? Search = null, int Page = 1, int PageSize = Paging.DefaultPageSize)
@@ -13,7 +14,7 @@ namespace BookHub.Application.Common
         public ListQuery Normalize() => this with
         {
             Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(),
-            Page = Math.Max(1, Page),
+            Page = Math.Clamp(Page, 1, Paging.MaxPage),
             PageSize = Math.Clamp(PageSize, 1, Paging.MaxPageSize)
         };
     }
@@ -33,7 +34,7 @@ namespace BookHub.Application.Common
         {
             Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(),
             SortBy = SortBy?.Trim().ToLowerInvariant(),
-            Page = Math.Max(1, Page),
+            Page = Math.Clamp(Page, 1, Paging.MaxPage),
             PageSize = Math.Clamp(PageSize, 1, Paging.MaxPageSize)
         };
     }

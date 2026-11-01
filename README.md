@@ -140,6 +140,8 @@ Key decisions:
 - **Referential integrity twice.** Services check business rules and return friendly messages; the database enforces them anyway (`ON DELETE RESTRICT`, unique index on genre name). `BookHubContext.SaveChangesAsync` translates PostgreSQL unique/foreign-key violations into `409`, so concurrent requests that pass the pre-check still get a correct response.
 - **Thin controllers.** They only map HTTP to service calls; error-to-status mapping is centralised in `GlobalExceptionHandler`.
 - **Search** uses `ILIKE` with escaped wildcards, so searches are case-insensitive and `%`/`_` are treated literally. Pagination is stable (ordered by the sort field, then `Id`).
+- **Input hardening.** `pageSize` is capped at 100 and the page number at 1,000,000 (so the offset cannot overflow); request bodies are limited to 1 MB (`413` beyond that); the `Server` header is removed; client errors raised by the server keep their own status instead of becoming `500`.
+- **Accurate logs.** The request-logging middleware wraps the exception handler, so a handled `409`/`404`/`400` is logged at Information with its real status, and only genuine `500`s are logged as errors (with the exception).
 
 ## 6. Database choice
 
@@ -168,11 +170,11 @@ _Alternatives considered:_ SQL Server (excellent tooling, but heavier image and 
 
 ## 8. Testing strategy
 
-108 automated tests, three levels:
+123 automated tests, three levels:
 
 - **Domain unit tests (`Domain/`)** — every invariant of the three entities, including ISBN normalisation and year boundaries.
-- **Service unit tests (`Application/`)** — business rules with mocked repositories: conflicts, not-found, blocked deletes, "nothing is saved when a rule fails", query normalisation.
-- **Integration tests (`Integration/`)** — the real API in-process (`WebApplicationFactory`) against a real PostgreSQL started by Testcontainers. They verify status codes, `ProblemDetails` content type, `Location` header, CORS headers, filters, sorting, paging, and database-enforced rules. The seeder is tested against fresh databases (populates an empty one, is idempotent, and leaves existing data alone). The API tests run with the seed disabled so their data stays deterministic.
+- **Service unit tests (`Application/`)** — business rules with mocked repositories: conflicts, not-found, blocked deletes, "nothing is saved when a rule fails", query normalisation (including the page cap), and the mapping of exceptions to HTTP statuses in the global handler.
+- **Integration tests (`Integration/`)** — the real API in-process (`WebApplicationFactory`) against a real PostgreSQL started by Testcontainers. They verify status codes, that every error (including the ones raised by the framework: malformed JSON, wrong media type, unknown route) is `application/problem+json`, `Location` header, CORS headers, filters, sorting, paging, and database-enforced rules. The seeder is tested against fresh databases (populates an empty one, is idempotent, and leaves existing data alone). The API tests run with the seed disabled so their data stays deterministic.
 
 Real PostgreSQL was chosen over EF's in-memory provider because the in-memory provider ignores constraints, `ILIKE` and migrations, which are exactly what we want to verify. The cost is a Docker requirement for the integration tests. Tests use unique names instead of cleaning the database, so they are independent and can share one container.
 
