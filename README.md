@@ -4,7 +4,7 @@ Application to search, register and maintain **genres**, **authors** and **books
 
 - **Backend:** .NET 10 REST API (this repository, `BookHub.*` projects)
 - **Database:** PostgreSQL 17
-- **Frontend:** React SPA _(to be added — see [Frontend organization](#frontend-organization))_
+- **Frontend:** React SPA in the [BookHub-Front](https://github.com/jp2d/BookHub-Front) repository (see [Frontend organization](#frontend-organization))
 
 ---
 
@@ -200,4 +200,26 @@ Real PostgreSQL was chosen over EF's in-memory provider because the in-memory pr
 
 ## Frontend organization
 
-_To be completed with the React application (structure, API consumption, state handling, how to run)._
+The frontend is a React 19 + TypeScript single-page application (Vite, MUI, TanStack Query, React Router) in its own repository: **[BookHub-Front](https://github.com/jp2d/BookHub-Front)**. Its README documents the full structure, conventions, decisions, trade-offs, tests and limitations; this is the summary.
+
+**What it does:** list, create, edit and delete genres, authors and books, with server-side search and pagination. The books screen sorts by title/year and shows each book's author and genre as clickable chips that filter the list; "View books" on an author or genre opens the books list already filtered (filters live in the URL, so they survive a reload).
+
+**How it consumes this API:** a thin `fetch` client turns `application/problem+json` responses into typed errors, so the API's messages (400 validation, 409 conflicts) are shown to the user as they are. Generic hooks and components (`createCrudHooks`, `useCrudPage`, `DataTable`, `AsyncAutocomplete`, ...) are configured per entity, so genres, authors and books share the same code. Client-side validation mirrors the domain rules of this API; the API remains the source of truth.
+
+**Organization:** every component is split into markup (`.tsx`), logic (hook `.ts`) and styles (`.module.css`); design tokens come from a single MUI theme exposed as CSS variables. 52 automated tests (Vitest + Testing Library) run without the API because `fetch` is mocked.
+
+**Running the whole system**
+
+```bash
+# 1) This repository: API + PostgreSQL (migrations and sample data are applied on startup)
+docker compose up -d --build
+
+# 2) The BookHub-Front repository: React app served by nginx
+git clone https://github.com/jp2d/BookHub-Front.git
+cd BookHub-Front
+docker compose up -d --build
+```
+
+Open <http://localhost:5173> (API at <http://localhost:5254>, Swagger at <http://localhost:5254/swagger>). For frontend development with hot reload, run `npm install && npm run dev` in the BookHub-Front repository instead of its container. Both use port 5173, which is the origin allowed by this API's CORS allow-list (`Cors:AllowedOrigins`).
+
+**Note on repositories:** the challenge asks for back-end and front-end in one repository. They are kept in two repositories here (independent build and deploy), linked from both READMEs; they can be merged into a monorepo or a submodule without code changes.
